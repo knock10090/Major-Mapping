@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "name": "Major Mapping",
+    "slug": "major-mapping",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "majormapping",
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true }
+  }
+}
