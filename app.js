@@ -70,7 +70,7 @@ function parseCSV(text){ function parseCSV(text){
       id:get(r,'college id','ipeds_id')||('sheet-'+i),
       name:name.trim(),
       location:stateName||'Location not entered',
-      type:rawType||'Not specified',
+      type:get('college type')||get('institution_type')||'Not specified',
       url:get(r,'website'),
       notes:'Institution directory information imported from your CSV.',
       gpa:'Not provided',
@@ -94,11 +94,11 @@ function parseCSV(text){ function parseCSV(text){
   const col=(record, name)=>record[headers.indexOf(name)]||'';
   return rows.map((r,i)=>{
     const get=name=>col(r,name);
-    const name=get('college name');
+    const name=get('college name') || get('institution_name');
     if(!name.trim()) return null;
     const city=get('city'), stateName=get('state');
     return {
-      id:get('college id')||('sheet-'+i),
+      id:get('college id')||get('ipeds_id')||('sheet-'+i),
       name:name.trim(),
       location:[city,stateName].filter(Boolean).join(', ')||stateName||'Location not entered',
       type:get('college type')||'Not specified',
