@@ -23,18 +23,68 @@ let selectedCompare = [];
 function loadState(){try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');return {profile:saved.profile||{},colleges:Array.isArray(saved.colleges)?saved.colleges:[],savedIds:Array.isArray(saved.savedIds)?saved.savedIds:[],roadmap:saved.roadmap||{},deadlines:Array.isArray(saved.deadlines)?saved.deadlines:[]};}catch(e){return {profile:{},colleges:[],savedIds:[],roadmap:{},deadlines:[]}}}
 function persist(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));renderAll()}
 let sheetColleges = [];
-function parseCSV(text){
-  const rows=[]; let row=[], field='', quoted=false;
+function parseCSV(text){ function parseCSV(text){
+  const rows=[];
+  let row=[], field='', quoted=false;
+
   for(let i=0;i<text.length;i++){
     const ch=text[i], next=text[i+1];
-    if(ch==='"' && quoted && next==='"'){field+='"';i++;}
-    else if(ch==='"'){quoted=!quoted;}
-    else if(ch===',' && !quoted){row.push(field);field='';}
-    else if((ch==='\\n'||ch==='\\r') && !quoted){
-      if(ch==='\\r' && next==='\\n') i++;
-      row.push(field);field='';
+
+    if(ch==='"' && quoted && next==='"'){
+      field+='"'; i++;
+    } else if(ch==='"'){
+      quoted=!quoted;
+    } else if(ch===',' && !quoted){
+      row.push(field); field='';
+    } else if((ch==='\n'||ch==='\r') && !quoted){
+      if(ch==='\r' && next==='\n') i++;
+      row.push(field); field='';
       if(row.some(v=>v.trim()!=='')) rows.push(row);
       row=[];
+    } else {
+      field+=ch;
+    }
+  }
+
+  row.push(field);
+  if(row.some(v=>v.trim()!=='')) rows.push(row);
+  if(!rows.length) return [];
+
+  const headers=rows.shift().map(h=>
+    h.trim().replace(/^\uFEFF/,'').toLowerCase()
+  );
+
+  const get=(record,...names)=>{
+    const index=headers.findIndex(h=>names.includes(h));
+    return index<0 ? '' : (record[index]||'');
+  };
+
+  return rows.map((r,i)=>{
+    const name=get(r,'college name','institution_name');
+    if(!name.trim()) return null;
+
+    const stateName=get(r,'state');
+    const rawType=get(r,'college type','institution_type');
+
+    return {
+      id:get(r,'college id','ipeds_id')||('sheet-'+i),
+      name:name.trim(),
+      location:stateName||'Location not entered',
+      type:rawType||'Not specified',
+      url:get(r,'website'),
+      notes:'Institution directory information imported from your CSV.',
+      gpa:'Not provided',
+      sat:'Not provided',
+      act:'Not provided',
+      testing:'Not provided',
+      deadline:'Not provided',
+      tuition:'Not provided',
+      courses:'Not provided',
+      requirements:'Not provided',
+      demo:false
+    };
+  }).filter(Boolean);
+}
     } else field+=ch;
   }
   row.push(field);
