@@ -22,7 +22,66 @@ let activePage = 'home';
 let selectedCompare = [];
 function loadState(){try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');return {profile:saved.profile||{},colleges:Array.isArray(saved.colleges)?saved.colleges:[],savedIds:Array.isArray(saved.savedIds)?saved.savedIds:[],roadmap:saved.roadmap||{},deadlines:Array.isArray(saved.deadlines)?saved.deadlines:[]};}catch(e){return {profile:{},colleges:[],savedIds:[],roadmap:{},deadlines:[]}}}
 function persist(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));renderAll()}
-function allColleges(){return [...sampleColleges,...state.colleges]}
+let sheetColleges = [];
+function parseCSV(text){
+  const rows=[]; let row=[], field='', quoted=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i], next=text[i+1];
+    if(ch==='"' && quoted && next==='"'){field+='"';i++;}
+    else if(ch==='"'){quoted=!quoted;}
+    else if(ch===',' && !quoted){row.push(field);field='';}
+    else if((ch==='\\n'||ch==='\\r') && !quoted){
+      if(ch==='\\r' && next==='\\n') i++;
+      row.push(field);field='';
+      if(row.some(v=>v.trim()!=='')) rows.push(row);
+      row=[];
+    } else field+=ch;
+  }
+  row.push(field);
+  if(row.some(v=>v.trim()!=='')) rows.push(row);
+  if(!rows.length) return [];
+  const headers=rows.shift().map(h=>h.trim().replace(/^\\uFEFF/,'').toLowerCase());
+  const col=(record, name)=>record[headers.indexOf(name)]||'';
+  return rows.map((r,i)=>{
+    const get=name=>col(r,name);
+    const name=get('college name');
+    if(!name.trim()) return null;
+    const city=get('city'), stateName=get('state');
+    return {
+      id:get('college id')||('sheet-'+i),
+      name:name.trim(),
+      location:[city,stateName].filter(Boolean).join(', ')||stateName||'Location not entered',
+      type:get('college type')||'Not specified',
+      url:get('website'),
+      notes:get('notes'),
+      gpa:'Not provided in Colleges tab',
+      sat:'Not provided in Colleges tab',
+      act:'Not provided in Colleges tab',
+      testing:'Not provided in Colleges tab',
+      deadline:'Not provided in Colleges tab',
+      tuition:'Not provided in Colleges tab',
+      courses:'Not provided in Colleges tab',
+      requirements:'Not provided in Colleges tab',
+      demo:false
+    };
+  }).filter(Boolean);
+}
+async function loadSheetColleges(){
+  try{
+    const response=await fetch('./colleges.csv',{cache:'no-store'});
+    if(!response.ok) throw new Error('Could not load colleges.csv');
+    const csv=await response.text();
+    const imported=parseCSV(csv);
+    if(!imported.length) throw new Error('No college rows found in colleges.csv');
+    sheetColleges=imported;
+    renderAll();
+    showToast(`Loaded ${sheetColleges.length} colleges from your spreadsheet.`);
+  }catch(error){
+    console.warn('College spreadsheet could not be loaded:',error);
+    showToast('Could not load colleges.csv. Showing sample colleges instead.');
+  }
+}
+function allColleges(){return [...(sheetColleges.length?sheetColleges:sampleColleges),...state.colleges]}
 function escapeHTML(value=''){return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function initials(name){return (name||'MM').trim().split(/\s+/).slice(0,2).map(x=>x[0]?.toUpperCase()||'').join('')||'MM'}
 function showToast(message){const t=document.getElementById('toast');t.textContent=message;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400)}
@@ -51,3 +110,4 @@ function renderAll(){renderHome();renderProfile();if(activePage==='explore')rend
 document.getElementById('deadlineForm').addEventListener('submit',e=>{e.preventDefault();const fd=new FormData(e.currentTarget);const item={id:'deadline-'+Date.now(),title:String(fd.get('title')).trim(),date:String(fd.get('date')),kind:String(fd.get('kind')),url:String(fd.get('url')).trim()};if(item.url&&!/^https?:\/\//i.test(item.url)){showToast('Please enter a complete website address beginning with https://');return}state.deadlines.push(item);e.currentTarget.reset();persist();showToast('Deadline added to your tracker.')});
 function renderDeadlines(){const sorted=[...state.deadlines].sort((a,b)=>a.date.localeCompare(b.date));const el=document.getElementById('deadlineList');if(!sorted.length){el.innerHTML='<div class="empty-state"><span>▣</span><h3>No deadlines added yet</h3><p>Add an application, scholarship, or financial-aid deadline above.</p></div>';return}el.innerHTML=sorted.map(d=>{const dt=new Date(d.date+'T12:00:00');const pretty=Number.isNaN(dt.getTime())?d.date:dt.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});return `<article class="deadline-item"><div class="deadline-date"><strong>${escapeHTML(pretty.split(' ')[1]||'')}</strong><span>${escapeHTML(pretty.split(' ')[0]||'')}</span></div><div class="deadline-info"><strong>${escapeHTML(d.title)}</strong><p>${escapeHTML(d.kind)}${d.url?' · <a href="'+escapeHTML(d.url)+'" target="_blank" rel="noopener noreferrer">Official source ↗</a>':''}</p></div><button class="small-button" data-delete-deadline="${escapeHTML(d.id)}">Remove</button></article>`}).join('');document.querySelectorAll('[data-delete-deadline]').forEach(b=>b.addEventListener('click',()=>{state.deadlines=state.deadlines.filter(x=>x.id!==b.dataset.deleteDeadline);persist()}))}
 renderAll();
+loadSheetColleges();
