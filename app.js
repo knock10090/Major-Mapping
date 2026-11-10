@@ -23,56 +23,56 @@ let selectedCompare = [];
 function loadState(){try{const saved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'{}');return {profile:saved.profile||{},colleges:Array.isArray(saved.colleges)?saved.colleges:[],savedIds:Array.isArray(saved.savedIds)?saved.savedIds:[],roadmap:saved.roadmap||{},deadlines:Array.isArray(saved.deadlines)?saved.deadlines:[]};}catch(e){return {profile:{},colleges:[],savedIds:[],roadmap:{},deadlines:[]}}}
 function persist(){localStorage.setItem(STORAGE_KEY,JSON.stringify(state));renderAll()}
 let sheetColleges = [];
-function parseCSV(text){ function parseCSV(text){
+function parseCSV(text){
   const rows=[];
-  let row=[], field='', quoted=false;
+  let row=[],field='',quoted=false;
 
   for(let i=0;i<text.length;i++){
-    const ch=text[i], next=text[i+1];
+    const ch=text[i],next=text[i+1];
 
-    if(ch==='"' && quoted && next==='"'){
-      field+='"'; i++;
-    } else if(ch==='"'){
+    if(ch==='"'&&quoted&&next==='"'){
+      field+='"';i++;
+    }else if(ch==='"'){
       quoted=!quoted;
-    } else if(ch===',' && !quoted){
-      row.push(field); field='';
-    } else if((ch==='\n'||ch==='\r') && !quoted){
-      if(ch==='\r' && next==='\n') i++;
-      row.push(field); field='';
-      if(row.some(v=>v.trim()!=='')) rows.push(row);
+    }else if(ch===','&&!quoted){
+      row.push(field);field='';
+    }else if((ch==='\n'||ch==='\r')&&!quoted){
+      if(ch==='\r'&&next==='\n')i++;
+      row.push(field);field='';
+      if(row.some(v=>v.trim()!==''))rows.push(row);
       row=[];
-    } else {
+    }else{
       field+=ch;
     }
   }
 
   row.push(field);
-  if(row.some(v=>v.trim()!=='')) rows.push(row);
-  if(!rows.length) return [];
+  if(row.some(v=>v.trim()!==''))rows.push(row);
+  if(!rows.length)return [];
 
   const headers=rows.shift().map(h=>
     h.trim().replace(/^\uFEFF/,'').toLowerCase()
   );
 
-  const get=(record,...names)=>{
+  const get=(r,...names)=>{
     const index=headers.findIndex(h=>names.includes(h));
-    return index<0 ? '' : (record[index]||'');
+    return index<0?'':(r[index]||'');
   };
 
   return rows.map((r,i)=>{
     const name=get(r,'college name','institution_name');
-    if(!name.trim()) return null;
+    if(!name.trim())return null;
 
+    const city=get(r,'city');
     const stateName=get(r,'state');
-    const rawType=get(r,'college type','institution_type');
 
     return {
-      id:get(r,'college id','ipeds_id')||('sheet-'+i),
+      id:get(r,'college id','ipeds_id')||'sheet-'+i,
       name:name.trim(),
-      location:stateName||'Location not entered',
-      type:get('college type')||get('institution_type')||'Not specified',
+      location:[city,stateName].filter(Boolean).join(', ')||'Location not entered',
+      type:get(r,'college type','institution_type')||'Not specified',
       url:get(r,'website'),
-      notes:'Institution directory information imported from your CSV.',
+      notes:get(r,'notes')||'Imported from your college spreadsheet.',
       gpa:'Not provided',
       sat:'Not provided',
       act:'Not provided',
@@ -81,37 +81,6 @@ function parseCSV(text){ function parseCSV(text){
       tuition:'Not provided',
       courses:'Not provided',
       requirements:'Not provided',
-      demo:false
-    };
-  }).filter(Boolean);
-}
-    } else field+=ch;
-  }
-  row.push(field);
-  if(row.some(v=>v.trim()!=='')) rows.push(row);
-  if(!rows.length) return [];
-  const headers=rows.shift().map(h=>h.trim().replace(/^\\uFEFF/,'').toLowerCase());
-  const col=(record, name)=>record[headers.indexOf(name)]||'';
-  return rows.map((r,i)=>{
-    const get=name=>col(r,name);
-    const name=get('college name') || get('institution_name');
-    if(!name.trim()) return null;
-    const city=get('city'), stateName=get('state');
-    return {
-      id:get('college id')||get('ipeds_id')||('sheet-'+i),
-      name:name.trim(),
-      location:[city,stateName].filter(Boolean).join(', ')||stateName||'Location not entered',
-      type:get('college type')||'Not specified',
-      url:get('website'),
-      notes:get('notes'),
-      gpa:'Not provided in Colleges tab',
-      sat:'Not provided in Colleges tab',
-      act:'Not provided in Colleges tab',
-      testing:'Not provided in Colleges tab',
-      deadline:'Not provided in Colleges tab',
-      tuition:'Not provided in Colleges tab',
-      courses:'Not provided in Colleges tab',
-      requirements:'Not provided in Colleges tab',
       demo:false
     };
   }).filter(Boolean);
